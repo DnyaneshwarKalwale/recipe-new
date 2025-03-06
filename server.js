@@ -9,10 +9,14 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'https://newrecipesappp.netlify.app/'
-}));
+const cors = require('cors');
+const express = require('express');
+
+const app = express();
+
+app.use(cors()); // Allows all origins
 app.use(express.json());
+
 
 // MongoDB Connection
 mongoose.connect(process.env.MONGODB_URI)
