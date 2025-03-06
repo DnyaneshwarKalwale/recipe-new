@@ -1,6 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const axios = require('axios');
 const { body, validationResult } = require('express-validator');
 require('dotenv').config();
 
@@ -13,15 +14,12 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// Request logging middleware
-app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
-  next();
-});
-
 // MongoDB Connection
 mongoose.connect(process.env.MONGODB_URI)
-  .then(() => console.log('Connected to MongoDB'))
+  .then(async () => {
+    console.log('Connected to MongoDB');
+    await seedDatabase();
+  })
   .catch(err => console.error('MongoDB connection error:', err));
 
 // Recipe Schema
@@ -40,7 +38,31 @@ const recipeSchema = new mongoose.Schema({
 
 const Recipe = mongoose.model('Recipe', recipeSchema);
 
-// API Endpoints
+// Seed database with DummyJSON data
+async function seedDatabase() {
+  try {
+    const count = await Recipe.countDocuments();
+    if (count === 0) {
+      const response = await axios.get('https://dummyjson.com/recipes');
+      const recipes = response.data.recipes.map(recipe => ({
+        name: recipe.name,
+        cuisine: recipe.cuisine,
+        instructions: recipe.instructions.join('\n'),
+        ingredients: recipe.ingredients,
+        image: recipe.image,
+        prepTimeMinutes: recipe.prepTimeMinutes,
+        cookTimeMinutes: recipe.cookTimeMinutes,
+        servings: recipe.servings,
+        tags: recipe.tags,
+        position: Date.now() + Math.random()
+      }));
+      await Recipe.insertMany(recipes);
+      console.log('Database seeded with DummyJSON recipes');
+    }
+  } catch (error) {
+    console.error('Seeding error:', error);
+  }
+}
 
 // GET all recipes
 app.get('/api/recipes', async (req, res) => {
