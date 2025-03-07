@@ -8,9 +8,15 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Custom Middleware to log API requests with timestamps
+app.use((req, res, next) => {
+  const timestamp = new Date().toISOString();
+  console.log(`[${timestamp}] ${req.method} ${req.url}`);
+  next();
+});
+
 app.use(cors()); // Allows all origins
 app.use(express.json());
-
 
 // MongoDB Connection
 mongoose.connect(process.env.MONGODB_URI)
@@ -110,10 +116,34 @@ app.post('/api/recipes',
 // PUT update recipe
 app.put('/api/recipes/:id', 
   [
-    // Same validations as POST
+    body('name').trim().notEmpty().withMessage('Recipe name is required'),
+    body('cuisine').trim().notEmpty().withMessage('Cuisine is required'),
+    body('instructions').trim().notEmpty().withMessage('Instructions are required'),
+    body('ingredients').isArray({ min: 1 }).withMessage('At least one ingredient is required'),
+    body('image').trim().isURL().withMessage('Valid image URL is required'),
+    body('prepTimeMinutes').isInt({ min: 1 }).withMessage('Valid prep time is required'),
+    body('cookTimeMinutes').isInt({ min: 1 }).withMessage('Valid cook time is required'),
+    body('servings').isInt({ min: 1 }).withMessage('Valid servings number is required'),
   ],
   async (req, res) => {
-    // Similar error handling as POST
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    try {
+      const updatedRecipe = await Recipe.findByIdAndUpdate(req.params.id, req.body, { new: true });
+      if (!updatedRecipe) {
+        return res.status(404).json({ message: 'Recipe not found' });
+      }
+      res.status(200).json(updatedRecipe);
+    } catch (err) {
+      console.error('Update error:', err);
+      res.status(500).json({ 
+        message: 'Failed to update recipe',
+        error: err.message 
+      });
+    }
   }
 );
 
